@@ -26,11 +26,21 @@ export default function Home() {
     if (!file) return;
     setLoading(true); setError("");
     try {
+      const companyProfile = localStorage.getItem("company_profile");
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("profile", JSON.stringify(
+        companyProfile ? JSON.parse(companyProfile) : {}
+      ));
       const res = await axios.post(`${API_URL}/api/generate`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      
+      // const formData = new FormData();
+      // formData.append("file", file);
+      // const res = await axios.post(`${API_URL}/api/generate`, formData, {
+      //   headers: { "Content-Type": "multipart/form-data" },
+      // });
       localStorage.setItem("rfp_result", JSON.stringify(res.data));
       navigate("/response");
     } catch { setError("Something went wrong. Please try again."); }
@@ -43,7 +53,12 @@ export default function Home() {
     }
     setLoading(true); setError("");
     try {
-      const res = await axios.post(`${API_URL}/api/generate-text`, { text: pastedText });
+      // const res = await axios.post(`${API_URL}/api/generate-text`, { text: pastedText });
+      const companyProfile = localStorage.getItem("company_profile");
+      const res = await axios.post(`${API_URL}/api/generate-text`, {
+        text: pastedText,
+        profile: companyProfile ? JSON.parse(companyProfile) : {}
+      });
       localStorage.setItem("rfp_result", JSON.stringify(res.data));
       navigate("/response");
     } catch { setError("Something went wrong. Please try again."); }

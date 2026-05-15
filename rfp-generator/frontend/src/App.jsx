@@ -7,14 +7,24 @@ import Response from "./pages/Response";
 import History from "./pages/History";
 import Auth from "./pages/Auth";
 import Sidebar from "./components/Sidebar";
+import Profile from "./pages/Profile";  
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    // supabase.auth.getSession().then(({ data: { session } }) => {
+    //   setSession(session);
+    //   setLoading(false);
+    // });
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        supabase.auth.signOut();
+        setSession(null);
+      } else {
+        setSession(session);
+      }
       setLoading(false);
     });
 
@@ -44,6 +54,7 @@ export default function App() {
             <Route path="/response" element={<Response />} />
             <Route path="/history"  element={<History />} />
             <Route path="*"         element={<Navigate to="/" />} />
+            <Route path="/profile" element={<Profile />} />   
           </Routes>
         </main>
       </div>

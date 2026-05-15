@@ -59,7 +59,7 @@ def get_relevant_context(retriever, query: str) -> str:
     return context
 
 
-async def run_rfp_agent(rfp_text: str) -> dict:
+async def run_rfp_agent(rfp_text: str, profile: dict = {}) -> dict:
     """
     RAG-powered multi-step AI agent that:
     1. Builds a vector store from the RFP
@@ -70,6 +70,14 @@ async def run_rfp_agent(rfp_text: str) -> dict:
     # ── Build RAG retriever from the RFP ───────────────────────────────
     print("Building RAG retriever...")
     retriever = build_rag_retriever(rfp_text)
+    profile_context = f"""
+    Company Name: {profile.get('companyName', 'Our Company')}
+    Services: {profile.get('services', 'Software Development')}
+    Team Size: {profile.get('teamSize', 'Experienced team')}
+    Location: {profile.get('location', '')}
+    Experience: {profile.get('experience', '')}
+    Speciality: {profile.get('speciality', '')}
+    """ if profile else "Our Company"
 
     # ── Step 1: Summarize the RFP ───────────────────────────────────────
     summary_context = get_relevant_context(
@@ -97,18 +105,20 @@ async def run_rfp_agent(rfp_text: str) -> dict:
     )
 
     exec_prompt = ChatPromptTemplate.from_template("""
-    You are a professional proposal writer. Write a compelling Executive Summary
-    for an RFP response. Be professional, confident, and client-focused.
-    Base it strictly on the RFP content provided.
+    You are a proposal writer for this company:
+    {profile_context}
+
+    Write a compelling Executive Summary for an RFP response.
+    Use the company details above to personalize the response.
+    Be professional, confident, and client-focused.
 
     RFP CONTENT:
     {context}
 
     Write 2-3 paragraphs for the Executive Summary section only.
     """)
-
     exec_chain = exec_prompt | llm | parser
-    executive_summary = await exec_chain.ainvoke({"context": exec_context})
+    executive_summary = await exec_chain.ainvoke({"context": exec_context, "profile_context": profile_context})
 
     # ── Step 3: Draft Technical Approach ───────────────────────────────
     tech_context = get_relevant_context(

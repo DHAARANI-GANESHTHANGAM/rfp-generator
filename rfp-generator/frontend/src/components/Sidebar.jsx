@@ -3,13 +3,14 @@ import { supabase } from "../utils/supabase";
 
 const links = [
   { to: "/",        icon: "⚡", label: "Generate" },
+  { to: "/profile", icon: "🏢", label: "Company Profile" },
   { to: "/history", icon: "📁", label: "History"  },
 ];
 
 export default function Sidebar({session}) {
 
   const handleLogout = async () => {
-    await supabase.auth.singOut();
+    await supabase.auth.signOut();
   };
   return (
     <aside style={{

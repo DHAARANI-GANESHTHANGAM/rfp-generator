@@ -1,11 +1,12 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+import json
 from agents.rfp_agent import run_rfp_agent
 from utils.pdf_reader import extract_text_from_pdf
 
 router = APIRouter()
 
 @router.post("/generate")
-async def generate_rfp_response(file: UploadFile = File(...)):
+async def generate_rfp_response(file: UploadFile = File(...), profile: str = Form("{}")):
     """
     Accepts an RFP PDF file, extracts text,
     runs the AI agent, and returns a drafted response.
@@ -22,7 +23,8 @@ async def generate_rfp_response(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Could not extract text from PDF.")
 
     # Step 3: Run the AI agent
-    result = await run_rfp_agent(rfp_text)
+    profile_data = json.loads(profile)
+    result = await run_rfp_agent(rfp_text, profile_data)
 
     return {
         "filename": file.filename,
@@ -42,7 +44,8 @@ async def generate_from_text(data: dict):
     if not rfp_text or len(rfp_text) < 50:
         raise HTTPException(status_code=400, detail="RFP text is too short.")
 
-    result = await run_rfp_agent(rfp_text)
+    profile = data.get("profile", {})
+    result = await run_rfp_agent(rfp_text, profile)
 
     return {
         "rfp_summary": result["summary"],
