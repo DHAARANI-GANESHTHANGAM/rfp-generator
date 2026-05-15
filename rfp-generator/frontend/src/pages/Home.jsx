@@ -5,161 +5,165 @@ import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+const Card = ({ children, style = {} }) => (
+  <div style={{
+    background: "#111118", border: "1px solid #1e1e2e",
+    borderRadius: "12px", padding: "24px", ...style,
+  }}>
+    {children}
+  </div>
+);
+
 export default function Home() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
-  const [tab, setTab]           = useState("upload"); // "upload" or "paste"
+  const [tab, setTab]           = useState("upload");
   const [pastedText, setPasted] = useState("");
   const navigate                = useNavigate();
 
-  // ── Handle PDF Upload ───────────────────────────────────────────────
   const onDrop = useCallback(async (acceptedFiles) => {
     const file = acceptedFiles[0];
     if (!file) return;
-
-    setLoading(true);
-    setError("");
-
+    setLoading(true); setError("");
     try {
       const formData = new FormData();
       formData.append("file", file);
-
       const res = await axios.post(`${API_URL}/api/generate`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-
-      // Save result to localStorage and navigate to response page
       localStorage.setItem("rfp_result", JSON.stringify(res.data));
       navigate("/response");
-    } catch (err) {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Something went wrong. Please try again."); }
+    finally { setLoading(false); }
   }, [navigate]);
 
-  // ── Handle Pasted Text ──────────────────────────────────────────────
   const handlePasteSubmit = async () => {
     if (!pastedText || pastedText.length < 50) {
-      setError("Please paste more RFP content.");
-      return;
+      setError("Please paste more RFP content."); return;
     }
-
-    setLoading(true);
-    setError("");
-
+    setLoading(true); setError("");
     try {
-      const res = await axios.post(`${API_URL}/api/generate-text`, {
-        text: pastedText,
-      });
-
+      const res = await axios.post(`${API_URL}/api/generate-text`, { text: pastedText });
       localStorage.setItem("rfp_result", JSON.stringify(res.data));
       navigate("/response");
-    } catch (err) {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError("Something went wrong. Please try again."); }
+    finally { setLoading(false); }
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { "application/pdf": [".pdf"] },
-    maxFiles: 1,
+    onDrop, accept: { "application/pdf": [".pdf"] }, maxFiles: 1,
   });
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center px-4">
-      <h1 className="text-4xl font-bold mb-2 text-center">
-        RFP Response Generator
-      </h1>
-      <p className="text-gray-400 mb-8 text-center">
-        Upload an RFP and let AI draft your response in seconds.
-      </p>
+    <div style={{ padding: "40px", maxWidth: "860px" }}>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setTab("upload")}
-          className={`px-4 py-2 rounded-lg font-medium ${
-            tab === "upload"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-800 text-gray-400"
-          }`}
-        >
-          Upload PDF
-        </button>
-        <button
-          onClick={() => setTab("paste")}
-          className={`px-4 py-2 rounded-lg font-medium ${
-            tab === "paste"
-              ? "bg-blue-600 text-white"
-              : "bg-gray-800 text-gray-400"
-          }`}
-        >
-          Paste Text
-        </button>
+      {/* Header */}
+      <div style={{ marginBottom: "32px" }}>
+        <h1 style={{ fontSize: "28px", fontWeight: "700", color: "#fff",
+          letterSpacing: "-0.5px", marginBottom: "8px" }}>
+          Generate RFP Response
+        </h1>
+        <p style={{ color: "#555", fontSize: "15px" }}>
+          Upload an RFP and our AI agent will draft a full proposal response.
+        </p>
+      </div>
+
+      {/* Stats Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
+        gap: "12px", marginBottom: "32px" }}>
+        {[
+          { label: "AI Sections", value: "3", sub: "Executive, Technical, Timeline" },
+          { label: "Processing Time", value: "~20s", sub: "Using Gemini + RAG" },
+          { label: "Export Format", value: "PDF", sub: "Editable before export" },
+        ].map(({ label, value, sub }) => (
+          <div key={label} style={{ background: "#0d0d14",
+            border: "1px solid #1e1e2e", borderRadius: "10px", padding: "16px" }}>
+            <div style={{ fontSize: "11px", color: "#555", marginBottom: "6px",
+              textTransform: "uppercase", letterSpacing: "1px" }}>{label}</div>
+            <div style={{ fontSize: "22px", fontWeight: "700", color: "#6366f1" }}>{value}</div>
+            <div style={{ fontSize: "12px", color: "#444", marginTop: "4px" }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tab Switcher */}
+      <div style={{ display: "flex", gap: "4px", marginBottom: "16px",
+        background: "#0d0d14", padding: "4px", borderRadius: "8px",
+        border: "1px solid #1e1e2e", width: "fit-content" }}>
+        {["upload", "paste"].map((t) => (
+          <button key={t} onClick={() => setTab(t)} style={{
+            padding: "8px 20px", borderRadius: "6px", border: "none",
+            cursor: "pointer", fontSize: "13px", fontWeight: "500",
+            background: tab === t ? "#6366f1" : "transparent",
+            color: tab === t ? "#fff" : "#555",
+            transition: "all 0.15s",
+          }}>
+            {t === "upload" ? "📄 Upload PDF" : "✏️ Paste Text"}
+          </button>
+        ))}
       </div>
 
       {/* Upload Area */}
       {tab === "upload" && (
-        <div
-          {...getRootProps()}
-          className={`w-full max-w-lg border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all ${
-            isDragActive
-              ? "border-blue-500 bg-blue-500/10"
-              : "border-gray-600 hover:border-blue-500"
-          }`}
-        >
-          <input {...getInputProps()} />
-          <p className="text-2xl mb-2">📄</p>
-          {isDragActive ? (
-            <p className="text-blue-400">Drop it here...</p>
-          ) : (
-            <>
-              <p className="text-gray-300">Drag & drop your RFP PDF here</p>
-              <p className="text-gray-500 text-sm mt-1">
-                or click to browse files
-              </p>
-            </>
-          )}
-        </div>
+        <Card>
+          <div {...getRootProps()} style={{
+            border: `2px dashed ${isDragActive ? "#6366f1" : "#1e1e2e"}`,
+            borderRadius: "10px", padding: "60px 40px", textAlign: "center",
+            cursor: "pointer", background: isDragActive ? "#13131f" : "transparent",
+            transition: "all 0.2s",
+          }}>
+            <input {...getInputProps()} />
+            <div style={{ fontSize: "40px", marginBottom: "12px" }}>📄</div>
+            <p style={{ color: "#ccc", fontSize: "16px", marginBottom: "4px" }}>
+              {isDragActive ? "Drop it here..." : "Drag & drop your RFP PDF"}
+            </p>
+            <p style={{ color: "#444", fontSize: "13px" }}>or click to browse files</p>
+            <div style={{ marginTop: "20px", display: "inline-block",
+              padding: "8px 20px", background: "#6366f1", borderRadius: "6px",
+              color: "#fff", fontSize: "13px", fontWeight: "500" }}>
+              Browse Files
+            </div>
+          </div>
+        </Card>
       )}
 
-      {/* Paste Text Area */}
+      {/* Paste Area */}
       {tab === "paste" && (
-        <div className="w-full max-w-lg">
-          <textarea
-            value={pastedText}
-            onChange={(e) => setPasted(e.target.value)}
+        <Card>
+          <textarea value={pastedText} onChange={(e) => setPasted(e.target.value)}
             placeholder="Paste your RFP text here..."
-            className="w-full h-48 bg-gray-800 border border-gray-600 rounded-xl p-4 text-white placeholder-gray-500 resize-none focus:outline-none focus:border-blue-500"
-          />
-          <button
-            onClick={handlePasteSubmit}
-            disabled={loading}
-            className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-medium transition-colors disabled:opacity-50"
-          >
-            {loading ? "Generating..." : "Generate Response →"}
+            style={{ width: "100%", height: "200px", background: "#0d0d14",
+              border: "1px solid #1e1e2e", borderRadius: "8px", padding: "16px",
+              color: "#ccc", fontSize: "14px", resize: "none",
+              outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+          <button onClick={handlePasteSubmit} disabled={loading} style={{
+            marginTop: "12px", width: "100%", padding: "12px",
+            background: loading ? "#333" : "#6366f1", border: "none",
+            borderRadius: "8px", color: "#fff", fontSize: "14px",
+            fontWeight: "600", cursor: loading ? "not-allowed" : "pointer",
+          }}>
+            {loading ? "⚙️ Generating..." : "Generate Response →"}
           </button>
-        </div>
+        </Card>
       )}
 
-      {/* Loading State */}
+      {/* Loading */}
       {loading && (
-        <div className="mt-6 text-center">
-          <div className="animate-spin text-3xl mb-2">⚙️</div>
-          <p className="text-gray-400">
-            AI is reading and drafting your response...
+        <div style={{ marginTop: "24px", textAlign: "center" }}>
+          <div style={{ fontSize: "13px", color: "#6366f1", marginBottom: "8px" }}>
+            ⚙️ AI agent is processing your RFP...
+          </div>
+          <div style={{ background: "#1e1e2e", borderRadius: "4px", height: "4px", overflow: "hidden" }}>
+            <div style={{ background: "#6366f1", height: "100%", width: "60%",
+              animation: "pulse 1.5s ease-in-out infinite" }} />
+          </div>
+          <p style={{ color: "#444", fontSize: "12px", marginTop: "8px" }}>
+            This takes 15–30 seconds
           </p>
-          <p className="text-gray-500 text-sm">This takes 15–30 seconds</p>
         </div>
       )}
 
-      {/* Error */}
-      {error && (
-        <p className="mt-4 text-red-400 text-sm">{error}</p>
-      )}
+      {error && <p style={{ color: "#ef4444", marginTop: "12px", fontSize: "13px" }}>{error}</p>}
     </div>
   );
 }

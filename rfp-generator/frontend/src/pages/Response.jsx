@@ -3,102 +3,133 @@ import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 
 export default function Response() {
-  const [result, setResult]   = useState(null);
-  const [edited, setEdited]   = useState("");
-  const [tab, setTab]         = useState("response"); // "summary" or "response"
-  const navigate              = useNavigate();
+  const [result, setResult] = useState(null);
+  const [edited, setEdited] = useState("");
+  const [tab, setTab]       = useState("response");
+  const [saved, setSaved]   = useState(false);
+  const navigate            = useNavigate();
 
   useEffect(() => {
-    const saved = localStorage.getItem("rfp_result");
-    if (!saved) {
-      navigate("/");
-      return;
-    }
-    const data = JSON.parse(saved);
-    setResult(data);
-    setEdited(data.drafted_response);
+    const data = localStorage.getItem("rfp_result");
+    if (!data) { navigate("/"); return; }
+    const parsed = JSON.parse(data);
+    setResult(parsed);
+    setEdited(parsed.drafted_response);
   }, [navigate]);
 
-  // ── Export to PDF ───────────────────────────────────────────────────
   const exportPDF = () => {
     const doc = new jsPDF();
-    const lines = doc.splitTextToSize(edited, 180);
     doc.setFontSize(12);
-    doc.text(lines, 15, 20);
+    doc.text(doc.splitTextToSize(edited, 180), 15, 20);
     doc.save("rfp-response.pdf");
+  };
+
+  const saveToHistory = () => {
+    const history = JSON.parse(localStorage.getItem("rfp_history") || "[]");
+    history.unshift({ ...result, savedAt: new Date().toLocaleString(), edited });
+    localStorage.setItem("rfp_history", JSON.stringify(history));
+    setSaved(true);
   };
 
   if (!result) return null;
 
+  const tabs = ["summary", "response", "sections"];
+
   return (
-    <div className="min-h-screen bg-gray-950 text-white px-4 py-10">
-      <div className="max-w-3xl mx-auto">
+    <div style={{ padding: "40px", maxWidth: "900px" }}>
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Your RFP Response</h1>
-          <div className="flex gap-2">
-            <button
-              onClick={() => navigate("/")}
-              className="px-4 py-2 bg-gray-800 rounded-lg text-sm"
-            >
-              ← New RFP
-            </button>
-            <button
-              onClick={exportPDF}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium"
-            >
-              Export PDF
-            </button>
-          </div>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between",
+        alignItems: "flex-start", marginBottom: "32px" }}>
+        <div>
+          <h1 style={{ fontSize: "26px", fontWeight: "700", color: "#fff",
+            marginBottom: "6px" }}>Your RFP Response</h1>
+          <p style={{ color: "#555", fontSize: "14px" }}>
+            Review, edit, and export your AI-drafted proposal
+          </p>
         </div>
-
-        {/* Tabs */}
-        <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setTab("summary")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${
-              tab === "summary"
-                ? "bg-blue-600"
-                : "bg-gray-800 text-gray-400"
-            }`}
-          >
-            RFP Summary
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button onClick={() => navigate("/")} style={{
+            padding: "9px 16px", background: "#111118",
+            border: "1px solid #1e1e2e", borderRadius: "8px",
+            color: "#888", fontSize: "13px", cursor: "pointer",
+          }}>← New RFP</button>
+          <button onClick={saveToHistory} style={{
+            padding: "9px 16px", background: saved ? "#1a2e1a" : "#111118",
+            border: `1px solid ${saved ? "#22c55e" : "#1e1e2e"}`,
+            borderRadius: "8px", color: saved ? "#22c55e" : "#888",
+            fontSize: "13px", cursor: "pointer",
+          }}>
+            {saved ? "✅ Saved" : "💾 Save"}
           </button>
-          <button
-            onClick={() => setTab("response")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${
-              tab === "response"
-                ? "bg-blue-600"
-                : "bg-gray-800 text-gray-400"
-            }`}
-          >
-            Draft Response
-          </button>
+          <button onClick={exportPDF} style={{
+            padding: "9px 16px", background: "#6366f1",
+            border: "none", borderRadius: "8px",
+            color: "#fff", fontSize: "13px", fontWeight: "600", cursor: "pointer",
+          }}>⬇️ Export PDF</button>
         </div>
-
-        {/* RFP Summary */}
-        {tab === "summary" && (
-          <div className="bg-gray-800 rounded-xl p-6 whitespace-pre-wrap text-gray-200 text-sm leading-relaxed">
-            {result.rfp_summary}
-          </div>
-        )}
-
-        {/* Editable Response */}
-        {tab === "response" && (
-          <>
-            <p className="text-gray-500 text-sm mb-2">
-              ✏️ Edit the draft below before exporting.
-            </p>
-            <textarea
-              value={edited}
-              onChange={(e) => setEdited(e.target.value)}
-              className="w-full h-[600px] bg-gray-800 border border-gray-700 rounded-xl p-6 text-gray-100 text-sm leading-relaxed resize-none focus:outline-none focus:border-blue-500 font-mono"
-            />
-          </>
-        )}
-
       </div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: "4px", marginBottom: "20px",
+        background: "#0d0d14", padding: "4px", borderRadius: "8px",
+        border: "1px solid #1e1e2e", width: "fit-content" }}>
+        {tabs.map((t) => (
+          <button key={t} onClick={() => setTab(t)} style={{
+            padding: "8px 18px", borderRadius: "6px", border: "none",
+            cursor: "pointer", fontSize: "13px", fontWeight: "500",
+            background: tab === t ? "#6366f1" : "transparent",
+            color: tab === t ? "#fff" : "#555",
+            textTransform: "capitalize", transition: "all 0.15s",
+          }}>{t}</button>
+        ))}
+      </div>
+
+      {/* Summary Tab */}
+      {tab === "summary" && (
+        <div style={{ background: "#111118", border: "1px solid #1e1e2e",
+          borderRadius: "12px", padding: "24px" }}>
+          <h3 style={{ color: "#6366f1", fontSize: "13px", fontWeight: "600",
+            letterSpacing: "1px", marginBottom: "16px" }}>RFP ANALYSIS</h3>
+          <pre style={{ color: "#aaa", fontSize: "14px", lineHeight: "1.8",
+            whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
+            {result.rfp_summary}
+          </pre>
+        </div>
+      )}
+
+      {/* Response Tab */}
+      {tab === "response" && (
+        <div>
+          <p style={{ color: "#555", fontSize: "13px", marginBottom: "12px" }}>
+            ✏️ Edit the draft below before exporting
+          </p>
+          <textarea value={edited} onChange={(e) => setEdited(e.target.value)}
+            style={{ width: "100%", height: "560px",
+              background: "#111118", border: "1px solid #1e1e2e",
+              borderRadius: "12px", padding: "24px", color: "#ccc",
+              fontSize: "14px", lineHeight: "1.8", resize: "none",
+              outline: "none", fontFamily: "monospace", boxSizing: "border-box" }} />
+        </div>
+      )}
+
+      {/* Sections Tab */}
+      {tab === "sections" && result.sections && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {Object.entries(result.sections).map(([key, value]) => (
+            <div key={key} style={{ background: "#111118",
+              border: "1px solid #1e1e2e", borderRadius: "12px", padding: "24px" }}>
+              <h3 style={{ color: "#6366f1", fontSize: "12px", fontWeight: "600",
+                letterSpacing: "1px", marginBottom: "12px",
+                textTransform: "uppercase" }}>
+                {key.replace(/_/g, " ")}
+              </h3>
+              <p style={{ color: "#aaa", fontSize: "14px",
+                lineHeight: "1.8", whiteSpace: "pre-wrap" }}>{value}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
