@@ -1,14 +1,17 @@
 import os
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import SentenceTransformerEmbeddings
 
 load_dotenv()
 
-# Initialize Gemini LLM
+# ── Initialize Gemini LLM ───────────────────────────────────────────────
 llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash",  # Free tier model
+    model="gemini-1.5-flash",
     google_api_key=os.getenv("GEMINI_API_KEY"),
     temperature=0.7
 )
@@ -16,79 +19,132 @@ llm = ChatGoogleGenerativeAI(
 parser = StrOutputParser()
 
 
+def build_rag_retriever(rfp_text: str):
+    """
+    Takes the raw RFP text, splits it into chunks,
+    stores in ChromaDB, and returns a retriever.
+    """
+    # Step 1: Split the RFP into smaller chunks
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=500,
+        chunk_overlap=50
+    )
+    chunks = splitter.create_documents([rfp_text])
+
+    # Step 2: Convert chunks to embeddings and store in ChromaDB
+    embeddings = SentenceTransformerEmbeddings(
+        model_name="all-MiniLM-L6-v2"  # free, runs locally
+    )
+    vectorstore = Chroma.from_documents(
+        documents=chunks,
+        embedding=embeddings
+    )
+
+    # Step 3: Return a retriever that finds relevant chunks
+    retriever = vectorstore.as_retriever(
+        search_kwargs={"k": 5}  # return top 5 most relevant chunks
+    )
+
+    return retriever
+
+
+def get_relevant_context(retriever, query: str) -> str:
+    """
+    Finds the most relevant chunks from the RFP using RAG.
+    """
+    docs = retriever.get_relevant_documents(query)
+    context = "\n\n".join([doc.page_content for doc in docs])
+    return context
+
+
 async def run_rfp_agent(rfp_text: str) -> dict:
     """
-    Multi-step AI agent that:
-    1. Summarizes the RFP
-    2. Identifies key requirements
-    3. Drafts each section of the response
+    RAG-powered multi-step AI agent that:
+    1. Builds a vector store from the RFP
+    2. Retrieves relevant chunks for each section
+    3. Drafts each section using only actual RFP content
     """
 
-    # ── Step 1: Summarize the RFP ──────────────────────────────────────
+    # ── Build RAG retriever from the RFP ───────────────────────────────
+    print("Building RAG retriever...")
+    retriever = build_rag_retriever(rfp_text)
+
+    # ── Step 1: Summarize the RFP ───────────────────────────────────────
+    summary_context = get_relevant_context(
+        retriever, "main goals objectives requirements overview"
+    )
+
     summary_prompt = ChatPromptTemplate.from_template("""
-    You are an expert business analyst. Read this RFP carefully and provide:
-    1. A 3-sentence summary
+    You are an expert business analyst. Based on the RFP content below, provide:
+    1. A 3-sentence summary of what is being requested
     2. The client's main goals
     3. Key requirements they are looking for
 
-    RFP TEXT:
-    {rfp_text}
+    RFP CONTENT:
+    {context}
 
     Respond in clear, concise bullet points.
     """)
 
     summary_chain = summary_prompt | llm | parser
-    summary = await summary_chain.ainvoke({"rfp_text": rfp_text[:3000]})
+    summary = await summary_chain.ainvoke({"context": summary_context})
 
+    # ── Step 2: Draft Executive Summary ────────────────────────────────
+    exec_context = get_relevant_context(
+        retriever, "project overview purpose background objectives"
+    )
 
-    # ── Step 2: Draft Executive Summary section ────────────────────────
-    exec_summary_prompt = ChatPromptTemplate.from_template("""
+    exec_prompt = ChatPromptTemplate.from_template("""
     You are a professional proposal writer. Write a compelling Executive Summary
-    section for an RFP response based on this RFP.
+    for an RFP response. Be professional, confident, and client-focused.
+    Base it strictly on the RFP content provided.
 
-    Keep it to 2-3 paragraphs. Be professional, confident, and client-focused.
+    RFP CONTENT:
+    {context}
 
-    RFP SUMMARY:
-    {summary}
-
-    Write only the Executive Summary section.
+    Write 2-3 paragraphs for the Executive Summary section only.
     """)
 
-    exec_chain = exec_summary_prompt | llm | parser
-    executive_summary = await exec_chain.ainvoke({"summary": summary})
+    exec_chain = exec_prompt | llm | parser
+    executive_summary = await exec_chain.ainvoke({"context": exec_context})
 
+    # ── Step 3: Draft Technical Approach ───────────────────────────────
+    tech_context = get_relevant_context(
+        retriever, "technical requirements specifications deliverables methodology"
+    )
 
-    # ── Step 3: Draft Technical Approach section ───────────────────────
-    technical_prompt = ChatPromptTemplate.from_template("""
-    You are a technical writer. Write a Technical Approach section for an RFP response.
-    Describe how your team would deliver the project, what methodology you'd use,
-    and why your approach is the best fit.
+    tech_prompt = ChatPromptTemplate.from_template("""
+    You are a technical writer. Write a Technical Approach section for an
+    RFP response. Describe how your team would deliver the project based
+    strictly on what the RFP asks for.
 
-    Based on this RFP summary:
-    {summary}
+    RFP CONTENT:
+    {context}
 
-    Write only the Technical Approach section. Use clear headings and bullet points.
+    Write the Technical Approach section with clear headings and bullet points.
     """)
 
-    tech_chain = technical_prompt | llm | parser
-    technical_approach = await tech_chain.ainvoke({"summary": summary})
+    tech_chain = tech_prompt | llm | parser
+    technical_approach = await tech_chain.ainvoke({"context": tech_context})
 
+    # ── Step 4: Draft Timeline & Pricing ───────────────────────────────
+    timeline_context = get_relevant_context(
+        retriever, "timeline deadline budget pricing cost schedule milestones"
+    )
 
-    # ── Step 4: Draft Timeline & Pricing section ───────────────────────
     timeline_prompt = ChatPromptTemplate.from_template("""
     You are a project manager. Write a proposed Timeline and Pricing section
-    for an RFP response. Include realistic phases, milestones, and a note about
-    pricing flexibility.
+    for an RFP response. Include realistic phases and milestones based on
+    what the RFP requires.
 
-    Based on this RFP summary:
-    {summary}
+    RFP CONTENT:
+    {context}
 
-    Write only the Timeline and Pricing section.
+    Write the Timeline and Pricing section only.
     """)
 
     timeline_chain = timeline_prompt | llm | parser
-    timeline = await timeline_chain.ainvoke({"summary": summary})
-
+    timeline = await timeline_chain.ainvoke({"context": timeline_context})
 
     # ── Step 5: Combine into full response ─────────────────────────────
     full_response = f"""
@@ -109,7 +165,8 @@ async def run_rfp_agent(rfp_text: str) -> dict:
 
 ---
 
-*This proposal was generated by AI and should be reviewed and customized before submission.*
+*This proposal was generated by AI using RAG from your RFP content.
+Please review and customize before submission.*
     """.strip()
 
     return {

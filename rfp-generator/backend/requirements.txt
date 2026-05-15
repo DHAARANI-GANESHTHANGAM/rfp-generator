@@ -6,7 +6,9 @@ pdfplumber
 pydantic
 langchain
 langchain-google-genai
+langchain-community
 langgraph
-tavily-python
+chromadb
+sentence-transformers
 supabase
 slowapi
