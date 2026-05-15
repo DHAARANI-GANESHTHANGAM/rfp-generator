@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+python-dotenv
+python-multipart
+pdfplumber
+pydantic
+langchain
+langchain-google-genai
+langgraph
+tavily-python
+supabase
+slowapi
