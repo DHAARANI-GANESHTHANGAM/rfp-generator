@@ -16,3 +16,4 @@ sentence-transformers
 supabase
 slowapi
 python-docx
+
