@@ -2,13 +2,19 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 export default function Response() {
-  const [result, setResult] = useState(null);
-  const [edited, setEdited] = useState("");
-  const [tab, setTab]       = useState("response");
-  const [saved, setSaved]   = useState(false);
-  const [winScore, setWinScore] = useState(null);
-  const navigate            = useNavigate();
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput]       = useState("");
+  const [chatLoading, setChatLoading]   = useState(false);
+  const [rfpText, setRfpText]           = useState("");
+  const [result, setResult]             = useState(null);
+  const [edited, setEdited]             = useState("");
+  const [tab, setTab]                   = useState("response");
+  const [saved, setSaved]               = useState(false);
+  const [winScore, setWinScore]         = useState(null);
+  const navigate                        = useNavigate();
 
   useEffect(() => {
     const data = localStorage.getItem("rfp_result");
@@ -17,13 +23,14 @@ export default function Response() {
     setResult(parsed);
     setEdited(parsed.drafted_response);
     if (parsed.win_score) setWinScore(parsed.win_score);
+    if (parsed.rfp_text) setRfpText(parsed.rfp_text);
   }, [navigate]);
 
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(12);
     doc.text(doc.splitTextToSize(edited, 180), 15, 20);
-    doc.save("rfp-response.pdf");
+    doc.save("proposai-response.pdf");
   };
 
   const saveToHistory = () => {
@@ -33,9 +40,37 @@ export default function Response() {
     setSaved(true);
   };
 
+  const handleChat = async () => {
+    if (!chatInput.trim()) return;
+    const userMessage = chatInput.trim();
+    setChatInput("");
+    setChatMessages(prev => [...prev, { role: "user", content: userMessage }]);
+    setChatLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: userMessage,
+          rfp_text: result.rfp_summary
+        })
+      });
+      const data = await res.json();
+      setChatMessages(prev => [...prev,
+        { role: "assistant", content: data.answer }
+      ]);
+    } catch {
+      setChatMessages(prev => [...prev,
+        { role: "assistant", content: "Sorry, something went wrong. Please try again." }
+      ]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   if (!result) return null;
 
-  const tabs = ["summary", "response", "sections", "win score"];
+  const tabs = ["summary", "response", "sections", "win score", "chat"];
 
   return (
     <div style={{ padding: "40px", maxWidth: "900px" }}>
@@ -45,7 +80,7 @@ export default function Response() {
         alignItems: "flex-start", marginBottom: "32px" }}>
         <div>
           <h1 style={{ fontSize: "26px", fontWeight: "700", color: "#fff",
-            marginBottom: "6px" }}>Your RFP Response</h1>
+            marginBottom: "6px" }}>Your Proposal Response</h1>
           <p style={{ color: "#555", fontSize: "14px" }}>
             Review, edit, and export your AI-drafted proposal
           </p>
@@ -54,21 +89,25 @@ export default function Response() {
           <button onClick={() => navigate("/")} style={{
             padding: "9px 16px", background: "#111118",
             border: "1px solid #1e1e2e", borderRadius: "8px",
-            color: "#888", fontSize: "13px", cursor: "pointer",
-          }}>← New RFP</button>
+            color: "#888", fontSize: "13px", cursor: "pointer" }}>
+            ← New RFP
+          </button>
           <button onClick={saveToHistory} style={{
-            padding: "9px 16px", background: saved ? "#1a2e1a" : "#111118",
+            padding: "9px 16px",
+            background: saved ? "#1a2e1a" : "#111118",
             border: `1px solid ${saved ? "#22c55e" : "#1e1e2e"}`,
-            borderRadius: "8px", color: saved ? "#22c55e" : "#888",
-            fontSize: "13px", cursor: "pointer",
-          }}>
+            borderRadius: "8px",
+            color: saved ? "#22c55e" : "#888",
+            fontSize: "13px", cursor: "pointer" }}>
             {saved ? "✅ Saved" : "💾 Save"}
           </button>
           <button onClick={exportPDF} style={{
             padding: "9px 16px", background: "#6366f1",
             border: "none", borderRadius: "8px",
-            color: "#fff", fontSize: "13px", fontWeight: "600", cursor: "pointer",
-          }}>⬇️ Export PDF</button>
+            color: "#fff", fontSize: "13px",
+            fontWeight: "600", cursor: "pointer" }}>
+            ⬇️ Export PDF
+          </button>
         </div>
       </div>
 
@@ -82,8 +121,9 @@ export default function Response() {
             cursor: "pointer", fontSize: "13px", fontWeight: "500",
             background: tab === t ? "#6366f1" : "transparent",
             color: tab === t ? "#fff" : "#555",
-            textTransform: "capitalize", transition: "all 0.15s",
-          }}>{t}</button>
+            textTransform: "capitalize", transition: "all 0.15s" }}>
+            {t}
+          </button>
         ))}
       </div>
 
@@ -111,7 +151,8 @@ export default function Response() {
               background: "#111118", border: "1px solid #1e1e2e",
               borderRadius: "12px", padding: "24px", color: "#ccc",
               fontSize: "14px", lineHeight: "1.8", resize: "none",
-              outline: "none", fontFamily: "monospace", boxSizing: "border-box" }} />
+              outline: "none", fontFamily: "monospace",
+              boxSizing: "border-box" }} />
         </div>
       )}
 
@@ -120,7 +161,8 @@ export default function Response() {
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           {Object.entries(result.sections).map(([key, value]) => (
             <div key={key} style={{ background: "#111118",
-              border: "1px solid #1e1e2e", borderRadius: "12px", padding: "24px" }}>
+              border: "1px solid #1e1e2e", borderRadius: "12px",
+              padding: "24px" }}>
               <h3 style={{ color: "#6366f1", fontSize: "12px", fontWeight: "600",
                 letterSpacing: "1px", marginBottom: "12px",
                 textTransform: "uppercase" }}>
@@ -132,33 +174,35 @@ export default function Response() {
           ))}
         </div>
       )}
-      {/*Win Score Tab*/}
+
+      {/* Win Score Tab */}
       {tab === "win score" && winScore && (
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          
+
           {/* Score Card */}
           <div style={{ background: "#111118", border: "1px solid #1e1e2e",
             borderRadius: "12px", padding: "32px", textAlign: "center" }}>
-              <div style={{ fontSize: "12px", color: "#555", letterSpacing: "1px",
-                marginBottom: "12px" }}>WIN PROBABILITY</div>
-              <div style={{ fontSize: "72px", fontWeight: "700",
-                color: parseInt(winScore.SCORE) >= 70 ? "#22c55e" :
-                       parseInt(winScore.SCORE) >= 50 ? "#f59e0b" : "#ef4444" }}>
-                {winScore.SCORE}
-              </div>
-              <div style={{ fontSize: "14px", color: "#555", marginBottom: "8px" }}>out of 100</div>
-              <div style={{ display: "inline-block", padding: "6px 20px",
-                borderRadius: "20px", fontSize: "13px", fontWeight: "600",
-                background: parseInt(winScore.SCORE) >= 70 ? "#14532d" :
-                            parseInt(winScore.SCORE) >= 50 ? "#451a03" : "#450a0a",
-                color: parseInt(winScore.SCORE) >= 70 ? "#22c55e" :
-                       parseInt(winScore.SCORE) >= 50 ? "#f59e0b" : "#ef4444" }}>
-                {winScore.RATING}
-              </div>
+            <div style={{ fontSize: "12px", color: "#555",
+              letterSpacing: "1px", marginBottom: "12px" }}>WIN PROBABILITY</div>
+            <div style={{ fontSize: "72px", fontWeight: "700",
+              color: parseInt(winScore.SCORE) >= 70 ? "#22c55e" :
+                     parseInt(winScore.SCORE) >= 50 ? "#f59e0b" : "#ef4444" }}>
+              {winScore.SCORE}
             </div>
+            <div style={{ fontSize: "14px", color: "#555",
+              marginBottom: "8px" }}>out of 100</div>
+            <div style={{ display: "inline-block", padding: "6px 20px",
+              borderRadius: "20px", fontSize: "13px", fontWeight: "600",
+              background: parseInt(winScore.SCORE) >= 70 ? "#14532d" :
+                          parseInt(winScore.SCORE) >= 50 ? "#451a03" : "#450a0a",
+              color: parseInt(winScore.SCORE) >= 70 ? "#22c55e" :
+                     parseInt(winScore.SCORE) >= 50 ? "#f59e0b" : "#ef4444" }}>
+              {winScore.RATING}
+            </div>
+          </div>
 
-            {/* Strengths */}
-           <div style={{ background: "#111118", border: "1px solid #1e1e2e",
+          {/* Strengths */}
+          <div style={{ background: "#111118", border: "1px solid #1e1e2e",
             borderRadius: "12px", padding: "24px" }}>
             <h3 style={{ color: "#22c55e", fontSize: "13px", fontWeight: "600",
               letterSpacing: "1px", marginBottom: "16px" }}>✅ STRENGTHS</h3>
@@ -204,6 +248,94 @@ export default function Response() {
           )}
         </div>
       )}
+
+      {/* Chat Tab */}
+      {tab === "chat" && (
+        <div style={{ display: "flex", flexDirection: "column", height: "600px" }}>
+
+          {/* Messages Area */}
+          <div style={{ flex: 1, overflowY: "auto", marginBottom: "16px",
+            display: "flex", flexDirection: "column", gap: "12px" }}>
+
+            {/* Welcome Message */}
+            {chatMessages.length === 0 && (
+              <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                <div style={{ fontSize: "32px", marginBottom: "12px" }}>💬</div>
+                <p style={{ color: "#555", fontSize: "14px" }}>
+                  Ask anything about your RFP document
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap",
+                  gap: "8px", justifyContent: "center", marginTop: "20px" }}>
+                  {[
+                    "What is the budget?",
+                    "Who is the client?",
+                    "What is the deadline?",
+                    "What are the technical requirements?",
+                  ].map((q) => (
+                    <button key={q} onClick={() => setChatInput(q)}
+                      style={{ padding: "8px 14px", background: "#111118",
+                        border: "1px solid #1e1e2e", borderRadius: "20px",
+                        color: "#888", fontSize: "12px", cursor: "pointer" }}>
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Chat Messages */}
+            {chatMessages.map((msg, i) => (
+              <div key={i} style={{ display: "flex",
+                justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
+                <div style={{
+                  maxWidth: "75%", padding: "12px 16px",
+                  borderRadius: msg.role === "user"
+                    ? "12px 12px 0 12px"
+                    : "12px 12px 12px 0",
+                  background: msg.role === "user" ? "#6366f1" : "#111118",
+                  border: msg.role === "user" ? "none" : "1px solid #1e1e2e",
+                  fontSize: "14px", lineHeight: "1.6",
+                  color: msg.role === "user" ? "#fff" : "#ccc" }}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+
+            {/* Loading */}
+            {chatLoading && (
+              <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                <div style={{ padding: "12px 16px", background: "#111118",
+                  border: "1px solid #1e1e2e", borderRadius: "12px 12px 12px 0",
+                  color: "#555", fontSize: "14px" }}>
+                  Thinking...
+                </div>
+              </div>
+            )}
+
+          </div> {/* End Messages Area */}
+
+          {/* Input */}
+          <div style={{ display: "flex", gap: "8px" }}>
+            <input
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleChat()}
+              placeholder="Ask anything about your RFP..."
+              style={{ flex: 1, padding: "12px 16px",
+                background: "#111118", border: "1px solid #1e1e2e",
+                borderRadius: "8px", color: "#fff", fontSize: "14px",
+                outline: "none" }} />
+            <button onClick={handleChat} disabled={chatLoading}
+              style={{ padding: "12px 20px", background: "#6366f1",
+                border: "none", borderRadius: "8px", color: "#fff",
+                fontSize: "14px", cursor: "pointer", fontWeight: "600" }}>
+              Send
+            </button>
+          </div>
+
+        </div> 
+      )}
+
     </div>
   );
 }

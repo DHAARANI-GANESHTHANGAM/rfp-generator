@@ -55,3 +55,22 @@ async def generate_from_text(data: dict):
         "sections": result["sections"],
         "win_score": result.get("win_score", {})
     }
+
+@router.post("/chat")
+async def chat_with_rfp(data: dict):
+    """
+    Accepts a question and RFP text,
+    returns an AI answer based on the RFP content.
+    """
+    question = data.get("question", "")
+    rfp_text = data.get("rfp_text", "")
+
+    if not question:
+        raise HTTPException(status_code=400, detail="Question is required.")
+    if not rfp_text:
+        raise HTTPException(status_code=400, detail="RFP text is required.")
+
+    from agents.chat_agent import answer_question
+    answer = await answer_question(rfp_text, question)
+
+    return { "answer": answer }
