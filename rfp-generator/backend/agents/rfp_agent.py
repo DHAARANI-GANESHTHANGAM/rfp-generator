@@ -1,6 +1,5 @@
 import os
 from dotenv import load_dotenv
-# from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -10,7 +9,6 @@ from langchain_community.embeddings import SentenceTransformerEmbeddings
 
 load_dotenv()
 
-# ── Initialize Gemini LLM ───────────────────────────────────────────────
 llm = ChatGroq(
     model="llama-3.3-70b-versatile",
     api_key=os.getenv("GROQ_API_KEY"),
@@ -21,55 +19,35 @@ parser = StrOutputParser()
 
 
 def build_rag_retriever(rfp_text: str):
-    """
-    Takes the raw RFP text, splits it into chunks,
-    stores in ChromaDB, and returns a retriever.
-    """
-    # Step 1: Split the RFP into smaller chunks
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
         chunk_overlap=50
     )
     chunks = splitter.create_documents([rfp_text])
-
-    # Step 2: Convert chunks to embeddings and store in ChromaDB
     embeddings = SentenceTransformerEmbeddings(
-        model_name="all-MiniLM-L6-v2"  # free, runs locally
+        model_name="all-MiniLM-L6-v2"
     )
     vectorstore = Chroma.from_documents(
         documents=chunks,
         embedding=embeddings
     )
-
-    # Step 3: Return a retriever that finds relevant chunks
     retriever = vectorstore.as_retriever(
-        search_kwargs={"k": 5}  # return top 5 most relevant chunks
+        search_kwargs={"k": 5}
     )
-
     return retriever
 
 
 def get_relevant_context(retriever, query: str) -> str:
-    """
-    Finds the most relevant chunks from the RFP using RAG.
-    """
-    # docs = retriever.get_relevant_documents(query)
     docs = retriever.invoke(query)
     context = "\n\n".join([doc.page_content for doc in docs])
     return context
 
 
 async def run_rfp_agent(rfp_text: str, profile: dict = {}) -> dict:
-    """
-    RAG-powered multi-step AI agent that:
-    1. Builds a vector store from the RFP
-    2. Retrieves relevant chunks for each section
-    3. Drafts each section using only actual RFP content
-    """
 
-    # ── Build RAG retriever from the RFP ───────────────────────────────
     print("Building RAG retriever...")
     retriever = build_rag_retriever(rfp_text)
+
     profile_context = f"""
     Company Name: {profile.get('companyName', 'Our Company')}
     Services: {profile.get('services', 'Software Development')}
@@ -79,7 +57,7 @@ async def run_rfp_agent(rfp_text: str, profile: dict = {}) -> dict:
     Speciality: {profile.get('speciality', '')}
     """ if profile else "Our Company"
 
-    # ── Step 1: Summarize the RFP ───────────────────────────────────────
+    # ── Step 1: Summarize ──────────────────────────────────────────────
     summary_context = get_relevant_context(
         retriever, "main goals objectives requirements overview"
     )
@@ -99,7 +77,7 @@ async def run_rfp_agent(rfp_text: str, profile: dict = {}) -> dict:
     summary_chain = summary_prompt | llm | parser
     summary = await summary_chain.ainvoke({"context": summary_context})
 
-    # ── Step 2: Draft Executive Summary ────────────────────────────────
+    # ── Step 2: Executive Summary ──────────────────────────────────────
     exec_context = get_relevant_context(
         retriever, "project overview purpose background objectives"
     )
@@ -117,10 +95,14 @@ async def run_rfp_agent(rfp_text: str, profile: dict = {}) -> dict:
 
     Write 2-3 paragraphs for the Executive Summary section only.
     """)
-    exec_chain = exec_prompt | llm | parser
-    executive_summary = await exec_chain.ainvoke({"context": exec_context, "profile_context": profile_context})
 
-    # ── Step 3: Draft Technical Approach ───────────────────────────────
+    exec_chain = exec_prompt | llm | parser
+    executive_summary = await exec_chain.ainvoke({
+        "context": exec_context,
+        "profile_context": profile_context
+    })
+
+    # ── Step 3: Technical Approach ─────────────────────────────────────
     tech_context = get_relevant_context(
         retriever, "technical requirements specifications deliverables methodology"
     )
@@ -139,7 +121,7 @@ async def run_rfp_agent(rfp_text: str, profile: dict = {}) -> dict:
     tech_chain = tech_prompt | llm | parser
     technical_approach = await tech_chain.ainvoke({"context": tech_context})
 
-    # ── Step 4: Draft Timeline & Pricing ───────────────────────────────
+    # ── Step 4: Timeline & Pricing ─────────────────────────────────────
     timeline_context = get_relevant_context(
         retriever, "timeline deadline budget pricing cost schedule milestones"
     )
@@ -181,6 +163,45 @@ async def run_rfp_agent(rfp_text: str, profile: dict = {}) -> dict:
 Please review and customize before submission.*
     """.strip()
 
+    # ── Step 6: Generate Win Score ─────────────────────────────────────
+    win_score_context = get_relevant_context(
+        retriever, "requirements budget timeline experience qualifications"
+    )
+
+    win_score_prompt = ChatPromptTemplate.from_template("""
+    You are a business development expert. Analyze this RFP and company profile
+    and rate how likely this company is to win the bid.
+
+    COMPANY PROFILE:
+    {profile_context}
+
+    RFP CONTENT:
+    {context}
+
+    Respond in this EXACT format, nothing else:
+    SCORE: [number between 1-100]
+    RATING: [one of: Excellent, Strong, Moderate, Challenging]
+    STRENGTH_1: [first strength in one sentence]
+    STRENGTH_2: [second strength in one sentence]
+    STRENGTH_3: [third strength in one sentence]
+    CHALLENGE_1: [first challenge in one sentence]
+    CHALLENGE_2: [second challenge in one sentence]
+    RECOMMENDATION: [one sentence advice]
+    """)
+
+    win_chain = win_score_prompt | llm | parser
+    win_raw = await win_chain.ainvoke({
+        "context": win_score_context,
+        "profile_context": profile_context
+    })
+
+    # Parse the win score response
+    win_score = {}
+    for line in win_raw.strip().split("\n"):
+        if ":" in line:
+            key, value = line.split(":", 1)
+            win_score[key.strip()] = value.strip()
+
     return {
         "summary": summary,
         "response": full_response,
@@ -188,5 +209,6 @@ Please review and customize before submission.*
             "executive_summary": executive_summary,
             "technical_approach": technical_approach,
             "timeline": timeline
-        }
+        },
+        "win_score": win_score
     }

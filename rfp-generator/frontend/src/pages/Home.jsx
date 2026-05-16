@@ -66,7 +66,10 @@ export default function Home() {
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop, accept: { "application/pdf": [".pdf"] }, maxFiles: 1,
+    onDrop, accept: { "application/pdf": [".pdf"],
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+      "application/msword": [".doc"],
+      "text/plain": [".txt"], },maxFiles: 1,
   });
 
   return (
@@ -76,10 +79,10 @@ export default function Home() {
       <div style={{ marginBottom: "32px" }}>
         <h1 style={{ fontSize: "28px", fontWeight: "700", color: "#fff",
           letterSpacing: "-0.5px", marginBottom: "8px" }}>
-          Generate RFP Response
+          Generate Proposal
         </h1>
         <p style={{ color: "#555", fontSize: "15px" }}>
-          Upload an RFP and our AI agent will draft a full proposal response.
+          Upload your RFP and ProposAI will draft a winning proposal in seconds.
         </p>
       </div>
 
@@ -87,9 +90,12 @@ export default function Home() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)",
         gap: "12px", marginBottom: "32px" }}>
         {[
-          { label: "AI Sections", value: "3", sub: "Executive, Technical, Timeline" },
-          { label: "Processing Time", value: "~20s", sub: "Using Gemini + RAG" },
-          { label: "Export Format", value: "PDF", sub: "Editable before export" },
+          // { label: "AI Sections", value: "3", sub: "Executive, Technical, Timeline" },
+          // { label: "Processing Time", value: "~20s", sub: "Using Gemini + RAG" },
+          // { label: "Export Format", value: "PDF", sub: "Editable before export" },
+          { label: "Time Saved", value: "3hrs", sub: "vs writing manually" },
+          { label: "Proposal Sections", value: "4", sub: "Ready to edit and export" },
+          { label: "File Formats", value: "4+", sub: "PDF, DOCX, DOC, TXT" },
         ].map(({ label, value, sub }) => (
           <div key={label} style={{ background: "#0d0d14",
             border: "1px solid #1e1e2e", borderRadius: "10px", padding: "16px" }}>
@@ -113,7 +119,7 @@ export default function Home() {
             color: tab === t ? "#fff" : "#555",
             transition: "all 0.15s",
           }}>
-            {t === "upload" ? "📄 Upload PDF" : "✏️ Paste Text"}
+            {t === "upload" ? "📄 Upload Document" : "✏️ Paste Text"}
           </button>
         ))}
       </div>
@@ -130,9 +136,10 @@ export default function Home() {
             <input {...getInputProps()} />
             <div style={{ fontSize: "40px", marginBottom: "12px" }}>📄</div>
             <p style={{ color: "#ccc", fontSize: "16px", marginBottom: "4px" }}>
-              {isDragActive ? "Drop it here..." : "Drag & drop your RFP PDF"}
+              {isDragActive ? "Drop it here..." : "Drag & drop your RFP Document"}
             </p>
-            <p style={{ color: "#444", fontSize: "13px" }}>or click to browse files</p>
+            <p style={{ color: "#444", fontSize: "10px" }}>
+              Supports PDF, DOCX, DOC, TX</p>
             <div style={{ marginTop: "20px", display: "inline-block",
               padding: "8px 20px", background: "#6366f1", borderRadius: "6px",
               color: "#fff", fontSize: "13px", fontWeight: "500" }}>

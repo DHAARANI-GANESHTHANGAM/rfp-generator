@@ -1,4 +1,4 @@
-# 🤖 RFP Response Generator
+# 🤖 ProposAI- AI Proposal Generator
 
 An AI-powered web app that reads an RFP (Request for Proposal) and automatically drafts a professional response using LangChain agents and Google Gemini.
 

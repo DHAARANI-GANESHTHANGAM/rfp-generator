@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 import json
 from agents.rfp_agent import run_rfp_agent
-from utils.pdf_reader import extract_text_from_pdf
+from utils.pdf_reader import extract_text
 
 router = APIRouter()
 
@@ -12,12 +12,13 @@ async def generate_rfp_response(file: UploadFile = File(...), profile: str = For
     runs the AI agent, and returns a drafted response.
     """
     # Step 1: Make sure it's a PDF
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+    allowed = [".pdf", ".docx", ".doc", ".txt"]
+    if not any(file.filename.lower().endswith(ext) for ext in allowed):
+        raise HTTPException(status_code=400, detail="Only PDF, DOCX, DOC, and TXT files are accepted.")
 
     # Step 2: Read and extract text from PDF
     contents = await file.read()
-    rfp_text = extract_text_from_pdf(contents)
+    rfp_text = extract_text(contents, file.filename)
 
     if not rfp_text:
         raise HTTPException(status_code=400, detail="Could not extract text from PDF.")
@@ -30,7 +31,8 @@ async def generate_rfp_response(file: UploadFile = File(...), profile: str = For
         "filename": file.filename,
         "rfp_summary": result["summary"],
         "drafted_response": result["response"],
-        "sections": result["sections"]
+        "sections": result["sections"],
+        "win_score": result.get("win_score", {})
     }
 
 
@@ -50,5 +52,6 @@ async def generate_from_text(data: dict):
     return {
         "rfp_summary": result["summary"],
         "drafted_response": result["response"],
-        "sections": result["sections"]
+        "sections": result["sections"],
+        "win_score": result.get("win_score", {})
     }

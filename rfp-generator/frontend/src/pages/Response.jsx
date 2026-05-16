@@ -7,6 +7,7 @@ export default function Response() {
   const [edited, setEdited] = useState("");
   const [tab, setTab]       = useState("response");
   const [saved, setSaved]   = useState(false);
+  const [winScore, setWinScore] = useState(null);
   const navigate            = useNavigate();
 
   useEffect(() => {
@@ -15,6 +16,7 @@ export default function Response() {
     const parsed = JSON.parse(data);
     setResult(parsed);
     setEdited(parsed.drafted_response);
+    if (parsed.win_score) setWinScore(parsed.win_score);
   }, [navigate]);
 
   const exportPDF = () => {
@@ -33,7 +35,7 @@ export default function Response() {
 
   if (!result) return null;
 
-  const tabs = ["summary", "response", "sections"];
+  const tabs = ["summary", "response", "sections", "win score"];
 
   return (
     <div style={{ padding: "40px", maxWidth: "900px" }}>
@@ -128,6 +130,78 @@ export default function Response() {
                 lineHeight: "1.8", whiteSpace: "pre-wrap" }}>{value}</p>
             </div>
           ))}
+        </div>
+      )}
+      {/*Win Score Tab*/}
+      {tab === "win score" && winScore && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          
+          {/* Score Card */}
+          <div style={{ background: "#111118", border: "1px solid #1e1e2e",
+            borderRadius: "12px", padding: "32px", textAlign: "center" }}>
+              <div style={{ fontSize: "12px", color: "#555", letterSpacing: "1px",
+                marginBottom: "12px" }}>WIN PROBABILITY</div>
+              <div style={{ fontSize: "72px", fontWeight: "700",
+                color: parseInt(winScore.SCORE) >= 70 ? "#22c55e" :
+                       parseInt(winScore.SCORE) >= 50 ? "#f59e0b" : "#ef4444" }}>
+                {winScore.SCORE}
+              </div>
+              <div style={{ fontSize: "14px", color: "#555", marginBottom: "8px" }}>out of 100</div>
+              <div style={{ display: "inline-block", padding: "6px 20px",
+                borderRadius: "20px", fontSize: "13px", fontWeight: "600",
+                background: parseInt(winScore.SCORE) >= 70 ? "#14532d" :
+                            parseInt(winScore.SCORE) >= 50 ? "#451a03" : "#450a0a",
+                color: parseInt(winScore.SCORE) >= 70 ? "#22c55e" :
+                       parseInt(winScore.SCORE) >= 50 ? "#f59e0b" : "#ef4444" }}>
+                {winScore.RATING}
+              </div>
+            </div>
+
+            {/* Strengths */}
+           <div style={{ background: "#111118", border: "1px solid #1e1e2e",
+            borderRadius: "12px", padding: "24px" }}>
+            <h3 style={{ color: "#22c55e", fontSize: "13px", fontWeight: "600",
+              letterSpacing: "1px", marginBottom: "16px" }}>✅ STRENGTHS</h3>
+            {[winScore.STRENGTH_1, winScore.STRENGTH_2, winScore.STRENGTH_3]
+              .filter(Boolean).map((s, i) => (
+              <div key={i} style={{ display: "flex", gap: "10px",
+                marginBottom: "12px", alignItems: "flex-start" }}>
+                <span style={{ color: "#22c55e", fontSize: "16px" }}>→</span>
+                <p style={{ color: "#aaa", fontSize: "14px",
+                  lineHeight: "1.6", margin: 0 }}>{s}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Challenges */}
+          <div style={{ background: "#111118", border: "1px solid #1e1e2e",
+            borderRadius: "12px", padding: "24px" }}>
+            <h3 style={{ color: "#f59e0b", fontSize: "13px", fontWeight: "600",
+              letterSpacing: "1px", marginBottom: "16px" }}>⚠️ CHALLENGES</h3>
+            {[winScore.CHALLENGE_1, winScore.CHALLENGE_2]
+              .filter(Boolean).map((c, i) => (
+              <div key={i} style={{ display: "flex", gap: "10px",
+                marginBottom: "12px", alignItems: "flex-start" }}>
+                <span style={{ color: "#f59e0b", fontSize: "16px" }}>→</span>
+                <p style={{ color: "#aaa", fontSize: "14px",
+                  lineHeight: "1.6", margin: 0 }}>{c}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Recommendation */}
+          {winScore.RECOMMENDATION && (
+            <div style={{ background: "#13131f", border: "1px solid #2e2e5e",
+              borderRadius: "12px", padding: "20px",
+              display: "flex", gap: "12px", alignItems: "flex-start" }}>
+              <span style={{ fontSize: "20px" }}>💡</span>
+              <p style={{ color: "#8888cc", fontSize: "14px",
+                lineHeight: "1.6", margin: 0 }}>
+                <strong style={{ color: "#6366f1" }}>Recommendation: </strong>
+                {winScore.RECOMMENDATION}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

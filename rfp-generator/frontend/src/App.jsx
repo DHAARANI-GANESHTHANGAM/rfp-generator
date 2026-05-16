@@ -8,6 +8,7 @@ import History from "./pages/History";
 import Auth from "./pages/Auth";
 import Sidebar from "./components/Sidebar";
 import Profile from "./pages/Profile";  
+import Landing from "./pages/Landing";
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -42,7 +43,7 @@ export default function App() {
     </div>
   );
 
-  if (!session) return <Auth />;
+  if (!session) return <Landing />;
   return (
     <Router>
       <div style={{ display: "flex", minHeight: "100vh", background: "#0a0a0f" }}>

@@ -25,7 +25,7 @@ export default function Sidebar({session}) {
       {/* Logo */}
       <div style={{ marginBottom: "40px", padding: "0 8px" }}>
         <div style={{ fontSize: "20px", fontWeight: "700", color: "#fff", letterSpacing: "-0.5px" }}>
-          🤖 RFP<span style={{ color: "#6366f1" }}>AI</span>
+          Propos<span style={{ color: "#6366f1" }}>AI</span>
         </div>
         <div style={{ fontSize: "11px", color: "#555", marginTop: "2px" }}>
           Proposal Generator

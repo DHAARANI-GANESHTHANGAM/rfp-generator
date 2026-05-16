@@ -31,7 +31,7 @@ export default function Auth() {
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div style={{ fontSize: "32px", marginBottom: "8px" }}>🤖</div>
           <h1 style={{ color: "#fff", fontSize: "22px", fontWeight: "700" }}>
-            RFP<span style={{ color: "#6366f1" }}>AI</span>
+            Propos<span style={{ color: "#6366f1" }}>AI</span>
           </h1>
           <p style={{ color: "#555", fontSize: "13px", marginTop: "4px" }}>
             AI-Powered Proposal Generator
